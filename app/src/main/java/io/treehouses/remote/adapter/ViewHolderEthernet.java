@@ -3,7 +3,6 @@ package io.treehouses.remote.adapter;
 import android.graphics.Color;
 import android.content.Context;
 import android.view.View;
-import android.widget.Button;
 import android.widget.Toast;
 import com.google.android.material.textfield.TextInputEditText;
 import io.treehouses.remote.ButtonConfiguration;
@@ -11,10 +10,10 @@ import io.treehouses.remote.Fragments.NetworkFragment;
 import io.treehouses.remote.R;
 import io.treehouses.remote.callback.HomeInteractListener;
 
-public class ViewHolderEthernet extends ButtonConfiguration {
-    public TextInputEditText etIp, etDNS, etGateway, etMask;
+class ViewHolderEthernet extends ButtonConfiguration {
+    private TextInputEditText etIp, etDNS, etGateway, etMask;
 
-    public ViewHolderEthernet(View v, final HomeInteractListener listener, final Context context) {
+    ViewHolderEthernet(View v, final HomeInteractListener listener, final Context context) {
         btnStartConfiguration = v.findViewById(R.id.btn_start_config);
         etIp = v.findViewById(R.id.ip);
         etDNS = v.findViewById(R.id.dns);
@@ -34,6 +33,5 @@ public class ViewHolderEthernet extends ButtonConfiguration {
                 Toast.makeText(context, "Connecting...", Toast.LENGTH_LONG).show();
             }
         });
-
     }
 }

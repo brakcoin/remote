@@ -16,7 +16,7 @@ class ViewHolderHotspot extends ButtonConfiguration{
     private EditText etEssid, etPassword;
     private Spinner spn;
 
-    public ViewHolderHotspot(View v, final HomeInteractListener listener, final Context context) {
+    ViewHolderHotspot(View v, final HomeInteractListener listener, final Context context) {
         etEssid = v.findViewById(R.id.et_hotspot_ssid);
         spn = v.findViewById(R.id.spn_hotspot_type);
         etPassword = v.findViewById(R.id.et_hotspot_password);
@@ -35,6 +35,5 @@ class ViewHolderHotspot extends ButtonConfiguration{
                 buttonProperties(false, Color.LTGRAY);
             }
         });
-
     }
 }
