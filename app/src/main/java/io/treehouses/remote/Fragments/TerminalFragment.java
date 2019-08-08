@@ -3,6 +3,7 @@ package io.treehouses.remote.Fragments;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
@@ -12,33 +13,38 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ExpandableListView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import org.json.JSONException;
-import org.json.JSONObject;
 
+import java.util.ArrayList;
+
+import io.treehouses.remote.Fragments.DialogFragments.ChPasswordDialogFragment;
 import io.treehouses.remote.MainApplication;
 import io.treehouses.remote.Constants;
 import io.treehouses.remote.Network.BluetoothChatService;
 import io.treehouses.remote.R;
+import io.treehouses.remote.adapter.NetworkListAdapter;
 import io.treehouses.remote.bases.BaseTerminalFragment;
-import io.treehouses.remote.bases.BaseFragment;
+import io.treehouses.remote.pojo.NetworkListItem;
 
 public class TerminalFragment extends BaseTerminalFragment {
 
     private static final String TAG = "BluetoothChatFragment";
+    private static TerminalFragment instance = null;
     private ListView mConversationView;
-    private EditText mOutEditText;
-    private Button mSendButton;
-    private Button pingStatusButton;
-    private Button mCheckButton;
     private TextView mPingStatus;
-    private ListView listView;
+    private EditText mOutEditText;
+    private Button mSendButton, pingStatusButton, mCheckButton, mPrevious;
+    private ExpandableListView expandableListView;
+    private NetworkListAdapter adapter;
+    private ArrayList<String> list;
+    private int i;
+    private String last;
     View view;
 
     public TerminalFragment() {}
@@ -48,14 +54,38 @@ public class TerminalFragment extends BaseTerminalFragment {
         view = inflater.inflate(R.layout.activity_terminal_fragment, container, false);
         mChatService = listener.getChatService();
         mChatService.updateHandler(mHandler);
+        instance = this;
+        adapter = new NetworkListAdapter(getContext(), NetworkListItem.getTerminalList(), mChatService);
+        adapter.setListener(listener);
         Log.e("TERMINAL mChatService", "" + mChatService.getState());
-        listView = view.findViewById(R.id.listView);
-        listView.setDivider(null);
-        listView.setDividerHeight(0);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(getActivity(), R.layout.terminal_options_list, R.id.terminalTexxtview, Constants.terminalList);
-        listView.setAdapter(adapter);
+        expandableListView = view.findViewById(R.id.terminalList);
+        onGroupExpand();
+        expandableListView.setAdapter(adapter);
         setHasOptionsMenu(true);
+
         return view;
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        mConversationView = view.findViewById(R.id.in);
+        mOutEditText = view.findViewById(R.id.edit_text_out);
+        mCheckButton = view.findViewById(R.id.check);
+        mSendButton = view.findViewById(R.id.button_send);
+        mPingStatus = view.findViewById(R.id.pingStatus);
+        pingStatusButton = view.findViewById(R.id.PING);
+        mPrevious = view.findViewById(R.id.btnPrevious);
+    }
+
+    private void onGroupExpand() {
+        expandableListView.setOnGroupClickListener((parent, v, groupPosition, id) -> {
+            if (!expandableListView.isGroupExpanded(groupPosition)) {
+                expandableListView.setBackgroundColor(Color.WHITE);
+            } else {
+                expandableListView.setBackgroundColor(0);
+            }
+            return false;
+        });
     }
 
     /**
@@ -87,20 +117,18 @@ public class TerminalFragment extends BaseTerminalFragment {
     }
 
     @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        mConversationView = view.findViewById(R.id.in);
-        mOutEditText = view.findViewById(R.id.edit_text_out);
-        mCheckButton = view.findViewById(R.id.check);
-        mSendButton = view.findViewById(R.id.button_send);
-        mPingStatus = view.findViewById(R.id.pingStatus);
-        pingStatusButton = view.findViewById(R.id.PING);
-    }
-
-    @Override
     public void onResume(){
         Log.e("tag", "LOG check onResume method ");
         super.onResume();
         setupChat();
+    }
+
+    public static TerminalFragment getInstance() {
+        return instance;
+    }
+
+    public ArrayAdapter<String> getmConversationArrayAdapter() {
+        return mConversationArrayAdapter;
     }
 
     /**
@@ -115,30 +143,15 @@ public class TerminalFragment extends BaseTerminalFragment {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
                 View view = super.getView(position, convertView, parent);
-                getViews(view, isRead);
-                return view;
+                return getViews(view, isRead);
             }
         };
         mConversationView.setAdapter(mConversationArrayAdapter);
 
-        buttonFunctionality();
-
         // Initialize the compose field with a listener for the return key
         mOutEditText.setOnEditorActionListener(mWriteListener);
 
-        // Initialize the send button with a listener that for click events
-        mSendButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                // Send a message using content of the edit text widget
-                View view = getView();
-                if (null != view) {
-                    TextView consoleInput = view.findViewById(R.id.edit_text_out);
-                    String message = consoleInput.getText().toString();
-                    listener.sendMessage(message);
-                    consoleInput.setText("");
-                }
-            }
-        });
+        btnSendClickListener();
 
         buttonOnClick(mCheckButton, mChatService, mPingStatus, pingStatusButton);
 
@@ -148,35 +161,44 @@ public class TerminalFragment extends BaseTerminalFragment {
         }
     }
 
-    private void buttonFunctionality() {
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (position == 1) {
-                    listener.sendMessage("treehouses");
-                } else if (position == 3) {
-                    listener.sendMessage("docker ps");
-                } else if (position == 2) {
-                    listener.sendMessage("treehouses detectrpi");
-                } else if (position == 0) {
-                    showChPasswordDialog();
-                } else if (position == 5) {
-                    listener.sendMessage("treehouses expandfs");
-                }
+    private void btnSendClickListener() {
+        // Initialize the send button with a listener that for click events
+        mSendButton.setOnClickListener(v -> {
+            // Send a message using content of the edit text widget
+            View view = getView();
+            if (null != view) {
+                TextView consoleInput = view.findViewById(R.id.edit_text_out);
+                String message = consoleInput.getText().toString();
+                listener.sendMessage(message);
+                consoleInput.setText("");
             }
         });
+
+        mPrevious.setOnClickListener(v -> {
+            setLastCommand();
+        });
+    }
+
+    private void setLastCommand() {
+        try {
+            last = list.get(--i);
+            mOutEditText.setText(last);
+            mOutEditText.setSelection(mOutEditText.length());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * The action listener for the EditText widget, to listen for the return key
      */
-    private TextView.OnEditorActionListener mWriteListener
-            = new TextView.OnEditorActionListener() {
+    private TextView.OnEditorActionListener mWriteListener = new TextView.OnEditorActionListener() {
         public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
             // If the action is a key-up event on the return key, send the message
             if (actionId == EditorInfo.IME_NULL && event.getAction() == KeyEvent.ACTION_UP) {
                 String message = view.getText().toString();
                 listener.sendMessage(message);
+
                 mOutEditText.setText("");
             }
             return true;
@@ -231,13 +253,10 @@ public class TerminalFragment extends BaseTerminalFragment {
         dialogFrag.show(getFragmentManager().beginTransaction(), "ChangePassDialog");
     }
 
-    private boolean isJson(String str) {
-        try {
-            new JSONObject(str);
-        } catch (JSONException ex) {
-            return false;
-        }
-        return true;
+    private void addToCommandList(String writeMessage) {
+        MainApplication.getCommandList().add(writeMessage);
+        list = MainApplication.getCommandList();
+        i = list.size();
     }
 
     /**
@@ -249,52 +268,25 @@ public class TerminalFragment extends BaseTerminalFragment {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case Constants.MESSAGE_STATE_CHANGE:
-                    switch (msg.arg1) {
-                        case Constants.STATE_LISTEN:
-                        case Constants.STATE_NONE:
-                            idle(mPingStatus, pingStatusButton);
-                            break;
-                    }
+                    if (msg.arg1 == Constants.STATE_LISTEN || msg.arg1 == Constants.STATE_NONE) { idle(mPingStatus, pingStatusButton); }
                     break;
                 case Constants.MESSAGE_WRITE:
                     isRead = false;
-                    handlerCaseWrite(TAG, mConversationArrayAdapter, msg);
+                    String writeMessage = handlerCaseWrite(TAG, mConversationArrayAdapter, msg);
+                    addToCommandList(writeMessage);
                     break;
                 case Constants.MESSAGE_READ:
-                    isRead = true;
                     String readMessage = (String)msg.obj;
-                    Log.d("tag", "readMessage = " + readMessage);
-
-                    //TODO: if message is json -> callback from RPi
-                    if (isJson(readMessage)) {
-                    } else {
-
-                        readMessage = readMessage.trim();
-
-                        //check if ping was successful
-                        if (readMessage.contains("1 packets")) {
-                            connect(mPingStatus, pingStatusButton);
-                        }
-                        if (readMessage.contains("Unreachable") || readMessage.contains("failure")) {
-                            offline(mPingStatus, pingStatusButton);
-                        }
-                        //make it so text doesn't show on chat (need a better way to check multiple strings since mConversationArrayAdapter only takes messages line by line)
-                        if (!readMessage.contains("1 packets") && !readMessage.contains("64 bytes") && !readMessage.contains("google.com") &&
-                                !readMessage.contains("rtt") && !readMessage.trim().isEmpty()) {
-                            MainApplication.getTerminalList().add(readMessage);
-                            mConversationArrayAdapter.notifyDataSetChanged();
-                        }
-                    }
+                    isRead = true;
+                    handlerCaseRead(readMessage, mPingStatus, pingStatusButton);
+                    filterMessages(readMessage, mConversationArrayAdapter, MainApplication.getTerminalList());
                     break;
                 case Constants.MESSAGE_DEVICE_NAME:
                     Activity activity = getActivity();
                     handlerCaseName(msg, activity);
                     break;
                 case Constants.MESSAGE_TOAST:
-                    if (null != getActivity()) {
-                        Toast.makeText(getActivity(), msg.getData().getString(Constants.TOAST),
-                                Toast.LENGTH_SHORT).show();
-                    }
+                    handlerCaseToast(msg);
                     break;
             }
         }

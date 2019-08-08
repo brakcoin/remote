@@ -1,4 +1,4 @@
-package io.treehouses.remote.Fragments;
+package io.treehouses.remote.Fragments.DialogFragments;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -26,7 +26,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import androidx.fragment.app.FragmentActivity;
+
 import io.treehouses.remote.Constants;
 import io.treehouses.remote.Network.BluetoothChatService;
 import io.treehouses.remote.R;
@@ -72,29 +72,20 @@ public class RPIDialogFragment extends BaseDialogFragment {
         final View mView = inflater.inflate(R.layout.activity_rpi_dialog_fragment, null);
         dialog = new ProgressDialog(getActivity(), ProgressDialog.THEME_HOLO_DARK);
         listView = mView.findViewById(R.id.listView);
-        mDialog = getAlertDialog(mView);
+        mDialog = getAlertDialog(mView, context, false);
         mDialog.setTitle(R.string.select_device);
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                mChatService = new BluetoothChatService(mHandler);
-                mainDevice = devices.get(position);
-                mChatService.connect(devices.get(position), true);
-                int status = mChatService.getState();
-                mDialog.cancel();
-                finish(status, mView);
-                Log.e("Connecting Bluetooth", "Position: " + position + " ;; Status: " + status);
-                dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                dialog.setTitle("Connecting...");
-                dialog.setMessage("Device Name: " + mainDevice.getName() + "\nDevice Address: " + mainDevice.getAddress());
-                dialog.show();
-            }
-        });
 
-        if (mChatService == null) {
-            setupBluetoothService();
-        }
+        listViewOnClickListener(mView);
 
+        if (mChatService == null) { setupBluetoothService(); }
+
+        bondedDevices();
+        intentFilter();
+
+        return mDialog;
+    }
+
+    private void bondedDevices() {
         Set<BluetoothDevice> pairedDevice = mBluetoothAdapter.getBondedDevices();
         if (pairedDevice.size() > 0) {
             for (BluetoothDevice device : pairedDevice) {
@@ -105,13 +96,30 @@ public class RPIDialogFragment extends BaseDialogFragment {
                 setAdapterNotNull(s);
             }
         }
+    }
+
+    private void intentFilter() {
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
         getActivity().registerReceiver(mReceiver, filter);
+    }
 
-        return mDialog;
+    private void listViewOnClickListener(View mView) {
+        listView.setOnItemClickListener((parent, view, position, id) -> {
+            mChatService = new BluetoothChatService(mHandler);
+            mainDevice = devices.get(position);
+            mChatService.connect(devices.get(position), true);
+            int status = mChatService.getState();
+            mDialog.cancel();
+            finish(status, mView);
+            Log.e("Connecting Bluetooth", "Position: " + position + " ;; Status: " + status);
+            dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            dialog.setTitle("Connecting...");
+            dialog.setMessage("Device Name: " + mainDevice.getName() + "\nDevice Address: " + mainDevice.getAddress());
+            dialog.show();
+        });
     }
 
     public static RPIDialogFragment getInstance() {
@@ -123,7 +131,7 @@ public class RPIDialogFragment extends BaseDialogFragment {
     }
 
     private void finish(int status, View mView) {
-        final AlertDialog mDialog = getAlertDialog(mView);
+        final AlertDialog mDialog = getAlertDialog(mView, context, false);
         if (status == 3) {
             mDialog.setTitle("BLUETOOTH IS CONNECTED");
         } else if (status == 2) {
@@ -148,12 +156,12 @@ public class RPIDialogFragment extends BaseDialogFragment {
 
     }
 
-    private AlertDialog getAlertDialog(View mView) {
-        return new AlertDialog.Builder(getActivity())
+    public AlertDialog getAlertDialog(View mView, Context context, Boolean wifi) {
+        return new AlertDialog.Builder(context)
                 .setView(mView)
                 .setIcon(R.drawable.dialog_icon)
-                .setNegativeButton(R.string.material_drawer_close, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int whichButton) {
+                .setNegativeButton(R.string.material_drawer_close, (dialog, whichButton) -> {
+                    if (!wifi) {
                         bluetoothCheck("unregister");
                     }
                 })
@@ -171,7 +179,6 @@ public class RPIDialogFragment extends BaseDialogFragment {
             if (args[0].equals("unregister")) {
                 context.unregisterReceiver(mReceiver);
                 Intent intent = new Intent();
-                Bundle bundle = new Bundle();
                 intent.putExtra("mChatService", mChatService);
                 getTargetFragment().onActivityResult(getTargetRequestCode(), Activity.RESULT_OK, intent);
             }
@@ -194,21 +201,25 @@ public class RPIDialogFragment extends BaseDialogFragment {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 String deviceName = device.getName();
                 String deviceHardwareAddress = device.getAddress(); // MAC address
-                boolean alreadyExist = false;
-                for (BluetoothDevice checkDevices : devices) {
-                    if (checkDevices.equals(device)) {
-                        alreadyExist = true;
-                    }
-                }
-                if (!alreadyExist) {
-                    devices.add(device);
-                    s.add(deviceName + "\n" + deviceHardwareAddress);
-                    setAdapterNotNull(s);
-                }
+                checkDevices(device, deviceName, deviceHardwareAddress);
                 Log.e("Broadcast BT", device.getName() + "\n" + device.getAddress());
             }
         }
     };
+
+    private void checkDevices(BluetoothDevice device, String deviceName, String deviceHardwareAddress) {
+        boolean alreadyExist = false;
+        for (BluetoothDevice checkDevices : devices) {
+            if (checkDevices.equals(device)) {
+                alreadyExist = true;
+            }
+        }
+        if (!alreadyExist) {
+            devices.add(device);
+            s.add(deviceName + "\n" + deviceHardwareAddress);
+            setAdapterNotNull(s);
+        }
+    }
 
     private void setupBluetoothService() {
         Log.d(TAG, "setupChat()");
@@ -220,7 +231,6 @@ public class RPIDialogFragment extends BaseDialogFragment {
         @Override
         public void handleMessage(Message msg) {
             Log.e("RPIDialogFragment", "" + msg.what);
-            FragmentActivity activity = getActivity();
 
             String readMessage = (String)msg.obj;
 
@@ -236,6 +246,7 @@ public class RPIDialogFragment extends BaseDialogFragment {
                             dialog.dismiss();
                             listener.setChatService(mChatService);
                             checkConnectionState.checkConnectionState();
+                            mBluetoothAdapter.cancelDiscovery();
                             Toast.makeText(context, "Bluetooth Connected", Toast.LENGTH_LONG).show();
                             break;
                         case Constants.STATE_NONE:

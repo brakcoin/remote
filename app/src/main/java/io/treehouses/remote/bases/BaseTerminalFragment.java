@@ -14,14 +14,21 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+
 import io.treehouses.remote.Constants;
+import io.treehouses.remote.MainApplication;
 import io.treehouses.remote.Network.BluetoothChatService;
 import io.treehouses.remote.R;
 import io.treehouses.remote.utils.Utils;
 
 public class BaseTerminalFragment extends BaseFragment{
 
-    public void handlerCaseWrite(String TAG, ArrayAdapter<String> mConversationArrayAdapter, Message msg) {
+    public String handlerCaseWrite(String TAG, ArrayAdapter<String> mConversationArrayAdapter, Message msg) {
 
         byte[] writeBuf = (byte[]) msg.obj;
         // construct a string from the buffer
@@ -30,6 +37,7 @@ public class BaseTerminalFragment extends BaseFragment{
             Log.d(TAG, "writeMessage = " + writeMessage);
             mConversationArrayAdapter.add("\nCommand:  " + writeMessage);
         }
+        return writeMessage;
     }
 
     public void handlerCaseName(Message msg, Activity activity ) {
@@ -38,6 +46,12 @@ public class BaseTerminalFragment extends BaseFragment{
         if (null != activity) {
             Toast.makeText(activity, "Connected to "
                     + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public void handlerCaseToast(Message msg) {
+        if (null != getActivity()) {
+            Toast.makeText(getActivity(), msg.getData().getString(Constants.TOAST), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -51,13 +65,13 @@ public class BaseTerminalFragment extends BaseFragment{
         return view;
     }
 
-    public void bgResource(Button pingStatusButton, int color) {
+    private void bgResource(Button pingStatusButton, int color) {
         pingStatusButton.setBackgroundResource((R.drawable.circle));
         GradientDrawable bgShape = (GradientDrawable) pingStatusButton.getBackground();
         bgShape.setColor(color);
     }
 
-    public void offline(TextView mPingStatus, Button pingStatusButton) {
+    protected void offline(TextView mPingStatus, Button pingStatusButton) {
         mPingStatus.setText(R.string.bStatusOffline);
         bgResource(pingStatusButton, Color.RED);
     }
@@ -72,7 +86,41 @@ public class BaseTerminalFragment extends BaseFragment{
         bgResource(pingStatusButton, Color.GREEN);
     }
 
-    public void isPingSuccesfull(String readMessage, TextView mPingStatus, Button pingStatusButton) {
+
+
+    protected void copyToList(final ListView mConversationView, final Context context) {
+        mConversationView.setOnItemClickListener((parent, view, position, id) -> {
+            String clickedData = (String) mConversationView.getItemAtPosition(position);
+            Utils.copyToClipboard(context, clickedData);
+        });
+    }
+
+    private void checkStatus(BluetoothChatService mChatService, TextView mPingStatus, Button pingStatusButton) {
+        if (mChatService.getState() == Constants.STATE_CONNECTED) {
+            connect(mPingStatus, pingStatusButton);
+        } else if (mChatService.getState() == Constants.STATE_NONE) {
+            offline(mPingStatus, pingStatusButton);
+        } else {
+            idle(mPingStatus, pingStatusButton);
+        }
+    }
+
+    protected void buttonOnClick(Button button, final BluetoothChatService mChatService, final TextView mPingStatus, final Button pingStatusButton) {
+        button.setOnClickListener(v -> {
+            Log.e("CHECK STATUS", "" + mChatService.getState());
+            checkStatus(mChatService, mPingStatus, pingStatusButton);
+        });
+    }
+
+    protected void filterMessages(String readMessage, ArrayAdapter mConversationArrayAdapter, ArrayList list) {
+        //make it so text doesn't show on chat (need a better way to check multiple strings since mConversationArrayAdapter only takes messages line by line)
+        if (!readMessage.contains("1 packets") && !readMessage.contains("64 bytes") && !readMessage.contains("google.com") && !readMessage.contains("rtt") && !readMessage.trim().isEmpty()) {
+            list.add(readMessage);
+            mConversationArrayAdapter.notifyDataSetChanged();
+        }
+    }
+
+    protected void isPingSuccesfull(String readMessage, TextView mPingStatus, Button pingStatusButton) {
         readMessage = readMessage.trim();
 
         //check if ping was successful
@@ -84,33 +132,22 @@ public class BaseTerminalFragment extends BaseFragment{
         }
     }
 
-    public void copyToList(final ListView mConversationView, final Context context) {
-        mConversationView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                String clickedData = (String) mConversationView.getItemAtPosition(position);
-                Utils.copyToClipboard(context, clickedData);
-            }
-        });
-    }
+    protected void handlerCaseRead(String readMessage, TextView mPingStatus, Button pingStatusButton) {
 
-    public void checkStatus(BluetoothChatService mChatService, TextView mPingStatus, Button pingStatusButton) {
-        if (mChatService.getState() == Constants.STATE_CONNECTED) {
-            connect(mPingStatus, pingStatusButton);
-        } else if (mChatService.getState() == Constants.STATE_NONE) {
-            offline(mPingStatus, pingStatusButton);
-        } else {
-            idle(mPingStatus, pingStatusButton);
+        Log.d("TAG", "readMessage = " + readMessage);
+
+        //TODO: if message is json -> callback from RPi
+        if (!isJson(readMessage)) {
+            isPingSuccesfull(readMessage, mPingStatus, pingStatusButton);
         }
     }
 
-    public void buttonOnClick(Button button, final BluetoothChatService mChatService, final TextView mPingStatus, final Button pingStatusButton) {
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.e("CHECK STATUS", "" + mChatService.getState());
-                checkStatus(mChatService, mPingStatus, pingStatusButton);
-            }
-        });
+    private boolean isJson(String readMessage) {
+        try {
+            new JSONObject(readMessage);
+        } catch (JSONException ex) {
+            return false;
+        }
+        return true;
     }
 }

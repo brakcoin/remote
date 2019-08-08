@@ -2,7 +2,6 @@ package io.treehouses.remote.Fragments;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -15,8 +14,9 @@ import android.widget.ExpandableListView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
 import io.treehouses.remote.ButtonConfiguration;
+import androidx.appcompat.app.AppCompatActivity;
+import io.treehouses.remote.Fragments.DialogFragments.WifiDialogFragment;
 import io.treehouses.remote.adapter.NetworkListAdapter;
 import io.treehouses.remote.adapter.ViewHolderReboot;
 import io.treehouses.remote.bases.BaseFragment;
@@ -39,7 +39,6 @@ public class NetworkFragment extends BaseFragment {
 
     public NetworkFragment() { }
 
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         view = inflater.inflate(R.layout.activity_network_fragment, container, false);
@@ -55,20 +54,17 @@ public class NetworkFragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
         adapter = new NetworkListAdapter(getContext(), NetworkListItem.getNetworkList(), mChatService);
         adapter.setListener(listener);
-        expListView.setOnGroupExpandListener(new ExpandableListView.OnGroupExpandListener() {
-            @Override
-            public void onGroupExpand(int groupPosition) {
-                if (groupPosition == 6) {
-                    Log.e("TAG", "groupPosition: " + groupPosition);
-                    expListView.collapseGroup(6);
-                    updateNetworkMode();
-                }
-
-                if (lastPosition != -1 && groupPosition != lastPosition) {
-                    expListView.collapseGroup(lastPosition);
-                }
-                lastPosition = groupPosition;
+        expListView.setOnGroupExpandListener(groupPosition -> {
+            if (groupPosition == 6) {
+                Log.e("TAG", "groupPosition: " + groupPosition);
+                expListView.collapseGroup(6);
+                updateNetworkMode();
             }
+
+            if (lastPosition != -1 && groupPosition != lastPosition) {
+                expListView.collapseGroup(lastPosition);
+            }
+            lastPosition = groupPosition;
         });
         expListView.setAdapter(adapter);
         expListView.setGroupIndicator(null);
@@ -78,8 +74,6 @@ public class NetworkFragment extends BaseFragment {
     public void onResume() {
         super.onResume();
         alert = false;
-        updateNetworkMode();
-        Log.e("TAG", "onResume is called");
         expListView.expandGroup(6);
     }
 
@@ -94,6 +88,7 @@ public class NetworkFragment extends BaseFragment {
     private void updateNetworkMode() {
         changeList = true;
         listener.sendMessage("treehouses networkmode");
+        Log.e("TAG", "network mode updated");
         Toast.makeText(getContext(), "Network Mode updated", Toast.LENGTH_SHORT).show();
     }
 
@@ -102,22 +97,15 @@ public class NetworkFragment extends BaseFragment {
                 .setTitle(title)
                 .setMessage(message)
                 .setIcon(R.drawable.wificon)
-                .setPositiveButton("No", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.cancel();
-                    }
-                }).setNegativeButton("Yes", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        switch (title) {
-                            case "Reset":
-                                listener.sendMessage("treehouses default network");
-                                break;
-                            case "Reboot":
-                                ViewHolderReboot.getInstance().reboot(listener, mChatService, getContext());
-                                break;
-                        }
+                .setPositiveButton("No", (dialog, which) -> dialog.cancel())
+                .setNegativeButton("Yes", (dialog, which) -> {
+                    switch (title) {
+                        case "Reset":
+                            listener.sendMessage("treehouses default network");
+                            break;
+                        case "Reboot":
+                            ViewHolderReboot.getInstance().reboot(listener, mChatService, getContext());
+                            break;
                     }
                 }).show();
     }
@@ -127,29 +115,32 @@ public class NetworkFragment extends BaseFragment {
                 .setTitle("OUTPUT:")
                 .setMessage(message)
                 .setIcon(R.drawable.wificon)
-                .setNegativeButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.cancel();
-                    }
-                }).show();
+                .setNegativeButton("OK", (dialog, which) -> dialog.cancel()).show();
+    }
+
+    public void showWifiDialog(View v) {
+        AppCompatActivity activity = (AppCompatActivity) v.getContext();
+        androidx.fragment.app.DialogFragment dialogFrag = WifiDialogFragment.newInstance();
+        dialogFrag.setTargetFragment(this, Constants.REQUEST_DIALOG_FRAGMENT_HOTSPOT);
+        dialogFrag.show(activity.getSupportFragmentManager().beginTransaction(), "wifiDialog");
     }
 
     private void changeList(String readMessage) {
+        listener.sendMessage("treehouses networkmode info");
         adapter.setNetworkMode("Network Mode: " + readMessage);
         switch (readMessage) {
-            case "default":
-            case "static ethernet":
+            case "default": // ethernet
+            case "static ethernet": // ethernet
                 expListView.expandGroup(0);
                 break;
-            case "wifi":
+            case "wifi": // wifi
                 expListView.expandGroup(1);
                 break;
-            case "internet":
-            case "local":
+            case "ap internet": // hotspot
+            case "ap local": // hotspot
                 expListView.expandGroup(2);
                 break;
-            case "bridge":
+            case "bridge": // bridge
                 expListView.expandGroup(3);
                 break;
         }
@@ -162,16 +153,48 @@ public class NetworkFragment extends BaseFragment {
             case "open wifi network": // wifi with no password
             case "password network": // wifi with password
                 alert = false;
-                buttonConfiguration.buttonProperties(true, Color.WHITE);
+                buttonConfiguration.buttonProperties(true, Color.WHITE, view);
                 updateNetworkMode();
                 return true;
         }
 
         if (readMessage.contains("Error")) {
-            buttonConfiguration.buttonProperties(true, Color.WHITE);
-            alert = true;
+            try {
+                buttonConfiguration.buttonProperties(true, Color.WHITE, view);
+                alert = true;
+            } catch (Exception e) {
+                e.printStackTrace();
+                changeList("Error");
+            }
         }
         return false;
+    }
+
+    private void prefill(String readMessage) {
+        if (readMessage.contains("essid")) {
+            String[] array = readMessage.split(",");
+            for (String element : array) {
+                elementConditions(element);
+            }
+        }
+    }
+
+    private void elementConditions(String element) {
+        Log.e("TAG", "networkmode= " + element);
+        if (element.contains("wlan0") && !element.contains("ap essid")) {                   // bridge essid
+            setSSIDText(element.substring(14).trim());
+        } else if (element.contains("ap essid")) {                                          // ap essid
+            setSSIDText(element.substring(16).trim());
+        } else if (element.contains("ap0")) {                                               // hotspot essid for bridge
+            ButtonConfiguration.getEtHotspotEssid().setText(element.substring(11).trim());
+        } else if (element.contains("essid")) {                                             // wifi ssid
+            setSSIDText(element.substring(6).trim());
+        }
+    }
+
+    private void setSSIDText(String substring) {
+        if (ButtonConfiguration.getSSID() != null)
+            ButtonConfiguration.getSSID().setText(substring);
     }
 
     /**
@@ -190,8 +213,15 @@ public class NetworkFragment extends BaseFragment {
                     return;
                 }
 
+                prefill(readMessage);
+
                 if (readMessage.contains("please reboot your device")) {
                     alert = true;
+                    changeList = false;
+                }
+
+                if (changeList) {
+                    changeList(readMessage.trim());
                     changeList = false;
                 }
 
@@ -207,6 +237,4 @@ public class NetworkFragment extends BaseFragment {
             }
         }
     };
-
-
 }

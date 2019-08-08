@@ -20,19 +20,16 @@ public class ViewHolderEthernet extends ButtonConfiguration {
         etDNS = v.findViewById(R.id.dns);
         etGateway = v.findViewById(R.id.gateway);
         etMask = v.findViewById(R.id.mask);
-        btnStartConfiguration.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                String ip = etIp.getText().toString();
-                String dns = etDNS.getText().toString();
-                String gateway = etGateway.getText().toString();
-                String mask = etMask.getText().toString();
-                listener.sendMessage(String.format("treehouses ethernet \"%s\" \"%s\" \"%s\" \"%s\"", ip, mask, gateway, dns));
+        btnStartConfiguration.setOnClickListener(view -> {
+            String ip = etIp.getText().toString();
+            String dns = etDNS.getText().toString();
+            String gateway = etGateway.getText().toString();
+            String mask = etMask.getText().toString();
+            listener.sendMessage(String.format("treehouses ethernet \"%s\" \"%s\" \"%s\" \"%s\"", ip, mask, gateway, dns));
 
-                buttonProperties(false, Color.LTGRAY);
+            buttonProperties(false, Color.LTGRAY, v);
 
-                Toast.makeText(context, "Connecting...", Toast.LENGTH_LONG).show();
-            }
+            Toast.makeText(context, "Connecting...", Toast.LENGTH_LONG).show();
         });
 
     }
