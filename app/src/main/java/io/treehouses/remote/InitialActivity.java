@@ -12,6 +12,12 @@ import android.os.Message;
 import android.util.Log;
 
 import com.google.android.material.navigation.NavigationView;
+import com.takusemba.spotlight.OnSpotlightStateChangedListener;
+import com.takusemba.spotlight.OnTargetStateChangedListener;
+import com.takusemba.spotlight.Spotlight;
+import com.takusemba.spotlight.shape.Circle;
+import com.takusemba.spotlight.shape.RoundedRectangle;
+import com.takusemba.spotlight.target.SimpleTarget;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -38,6 +44,7 @@ import io.treehouses.remote.utils.LogUtils;
 
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Toast;
 
 public class InitialActivity extends PermissionActivity
@@ -98,6 +105,102 @@ public class InitialActivity extends PermissionActivity
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 //        navigationView.addHeaderView(getResources().getLayout(R.layout.navigation_view_header));
+
+        showIntro();
+    }
+
+    public void showIntro(){
+        SimpleTarget firstTarget = new SimpleTarget.Builder(this)
+                .setPoint(550f, 1800f)
+                .setShape(new Circle(150f))//RoundedRectangle(100f, 400f, 50f)) // or RoundedRectangle()
+                .setTitle("Connect to RPI")
+                .setDescription("Start by connecting to RPI \nvia Bluetooth")
+                .setOverlayPoint(500f, 1300f)
+                .setOnSpotlightStartedListener(new OnTargetStateChangedListener<SimpleTarget>() {
+                    @Override
+                    public void onStarted(SimpleTarget target) {
+                        // do something
+                    }
+                    @Override
+                    public void onEnded(SimpleTarget target) {
+                        
+                    }
+                })
+                .build();
+
+        SimpleTarget menuTarget = new SimpleTarget.Builder(this)
+                .setPoint(80f, 140f)
+                .setShape(new Circle(70f))//RoundedRectangle(100f, 400f, 50f)) // or RoundedRectangle()
+                .setTitle("Main Menu")
+                .setDescription("See the different services provided")
+                .setOverlayPoint(100f, 200f)
+                .setOnSpotlightStartedListener(new OnTargetStateChangedListener<SimpleTarget>() {
+                    @Override
+                    public void onStarted(SimpleTarget target) {
+                        // do something
+                    }
+                    @Override
+                    public void onEnded(SimpleTarget target) {
+
+                    }
+                })
+                .build();
+
+        SimpleTarget settingTarget = new SimpleTarget.Builder(this)
+                .setPoint(1000f, 150f)
+                .setShape(new Circle(70f))
+                .setTitle("Settings")
+                .setDescription("Change different settings")
+                .setOverlayPoint(500f, 200f)
+                .setOnSpotlightStartedListener(new OnTargetStateChangedListener<SimpleTarget>() {
+                    @Override
+                    public void onStarted(SimpleTarget target) {
+                        // do something
+                    }
+                    @Override
+                    public void onEnded(SimpleTarget target) {
+
+                    }
+                })
+                .build();
+
+        SimpleTarget startTarget = new SimpleTarget.Builder(this)
+                .setPoint(540f, 1960f)
+                .setShape(new Circle(120f))
+                .setTitle("Get Started Here")
+                .setDescription("Basic overview of Treehouse")
+                .setOverlayPoint(400f, 1500f)
+                .setOnSpotlightStartedListener(new OnTargetStateChangedListener<SimpleTarget>() {
+                    @Override
+                    public void onStarted(SimpleTarget target) {
+                        // do something
+                    }
+                    @Override
+                    public void onEnded(SimpleTarget target) {
+
+                    }
+                })
+                .build();
+
+        Spotlight.with(this)
+                .setOverlayColor(R.color.background)
+                .setDuration(1000L)
+                .setAnimation(new DecelerateInterpolator(2f))
+                .setTargets(firstTarget, menuTarget, settingTarget, startTarget)
+        .setClosedOnTouchedOutside(true)
+                .setOnSpotlightStateListener(new OnSpotlightStateChangedListener() {
+                    @Override
+                    public void onStarted() {
+                        //Toast.makeText(InitialActivity.this, "spotlight is started", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onEnded() {
+                      //  Toast.makeText(InitialActivity.this, "spotlight is ended", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .start();
+
     }
 
     public static InitialActivity getInstance() {
@@ -433,6 +536,8 @@ public class InitialActivity extends PermissionActivity
 //        }
 //        return true;
 //    }
+
+
 
 
 }

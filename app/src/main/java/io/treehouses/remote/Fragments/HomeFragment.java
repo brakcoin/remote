@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
@@ -16,6 +17,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.takusemba.spotlight.Spotlight;
 
 import io.treehouses.remote.Fragments.DialogFragments.RPIDialogFragment;
 import io.treehouses.remote.InitialActivity;
@@ -32,6 +35,8 @@ public class HomeFragment extends BaseFragment implements SetDisconnect {
     private BluetoothChatService mChatService = null;
     private Button connectRpi, getStarted;
     private Boolean connectionState = false;
+    private boolean isRevealEnabled = true;
+
     View view;
 
     public HomeFragment(){}
@@ -139,4 +144,7 @@ public class HomeFragment extends BaseFragment implements SetDisconnect {
         dialogFrag.setTargetFragment(this, Constants.REQUEST_DIALOG_FRAGMENT_HOTSPOT);
         dialogFrag.show(getFragmentManager().beginTransaction(),"rpiDialog");
     }
+
+
+
 }

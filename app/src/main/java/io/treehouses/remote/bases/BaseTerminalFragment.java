@@ -26,7 +26,8 @@ import io.treehouses.remote.Network.BluetoothChatService;
 import io.treehouses.remote.R;
 import io.treehouses.remote.utils.Utils;
 
-public class BaseTerminalFragment extends BaseFragment{
+public class
+BaseTerminalFragment extends BaseFragment{
 
     public String handlerCaseWrite(String TAG, ArrayAdapter<String> mConversationArrayAdapter, Message msg) {
 
